@@ -1,0 +1,45 @@
+---
+title: "oppgavene 4C1 og 4C3 fra Wooldridge"
+output: html_notebook
+---
+
+```{r setup}
+library(wooldridge)
+library(car)
+```
+
+Oppgave 4C1
+
+i.  Tolkning $\beta_1$?
+
+    Holder alle andre variabler enn $\textsf{expendA}$ fast.
+    Gir oss
+
+    $$
+    \Delta \textsf{VoteA} = \beta_1 \textsf{log(expendA)} = \frac{\beta_1}{100}(100 \Delta \textsf{log(expendA))} \approx \frac{\beta_1}{100} \% \Delta \textsf{expendA} 
+    $$
+
+    Altså gir $\beta_1$ oss tilnærmet antall prosentpoeng økning i $\textsf{voteA}$ når $\textsf{expendA}$ øker med 1%.
+    Altså antall prosentpoeng økning (f.eks fra 12,1% til 12,7%, dvs. 0,6 prosentpoeng økning) når vi øker $\textsf{expendA}$ med 1% (f.eks fra 20 millioner til $20\cdot 1,01 = 20,2$ millioner).
+
+    Eksempeltallene er selvsagt tatt rett ut av løse luften som en illustrasjon.
+    Et viktig poeng er at den første størrelsen er *prosentpoeng* mens den andre er en relativ størrelse (*prosentvis endring*).
+    Disse to begrepene blandes ofte.
+
+ii. H0: $\beta_1 = -\beta_2$ eller H0: $\beta_1 + \beta\_2 = 0$.
+    Altså har vi at hvis expendA og expendB økes med samme prosentvise størrelse (f.eks fra 10 mill. til 10,5 mill. for A og fra 30 mill. til 31,5 mill. for B) så vil As andel av stemmene være uendret.
+
+    ```{r 41cii}
+    # load dataset vote1 from wooldridge package
+    data(vote1)
+    mod1 <- "voteA ~ log(expendA) + log(expendB) + prtystrA"
+    lm1 <- lm(mod1, data=vote1)
+    ```
+
+```{r summary-lm1}
+summary(lm1)
+```
+
+Vi ser fra summaryat de estimerte koeffisientene for `log(expendA)` er 6.08332 og -6.61542 for `log(expendB)`.
+En økning på 1% i expendA vil altså gi 6,1 prosentpoeng økning i andelen stemmer for kandidat A.
+Likeledes vil 1% økning i expendB, alle andre variabler holdt fast, gi en reduksjon på 6,62 prosentpoeng i kandidat As andel av stemmene.

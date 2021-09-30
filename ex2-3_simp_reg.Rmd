@@ -1,0 +1,99 @@
+---
+title: "ex 2-3 simple regression"
+output: html_notebook
+---
+
+```{r setup}
+library(wooldridge)
+```
+
+```{r load-ceosal1}
+data(ceosal1)
+```
+
+```{r}
+summary(ceosal1[,1:5])
+```
+
+```{r}
+mod1 <- "salary ~ roe"
+lm1 <- lm(mod1, data = ceosal1)
+```
+
+```{r}
+summary(lm1)
+```
+
+```{r}
+# The plus at end of first line necessary in an R Notebook
+plot(ceosal1$roe, ceosal1$salary, xlim = c(0, 60), ylim = c(0, 4000)) +
+abline(lm1)
+```
+
+```{r regression-diagnostics}
+plot(lm1)
+```
+
+```{r}
+# note that I() not needed here, but I use it with every transformation of
+# regression variables out of habit. I() is required for other transformations
+mod2 <- "I(log(salary)) ~ roe"
+lm2 <- lm(mod2, data = ceosal1)
+```
+
+```{r}
+summary(lm2)
+```
+
+```{r}
+# The plus at end of first line necessary in an R Notebook
+plot(ceosal1$roe, log(ceosal1$salary), xlim = c(0, 60), ylim = c(5, 9)) +
+abline(lm2)
+```
+
+```{r regression-diagnostics-2}
+plot(lm2)
+```
+
+# Calculate R-square ex 2.8 cont. 2.3
+
+```{r}
+summary(lm1)
+```
+
+```{r}
+sal.hat <- fitted(lm1)
+u.hat <- resid(lm1)
+```
+
+```{r}
+# R^2
+var(sal.hat)/var(u.hat)
+```
+
+```{r}
+#R^2
+# ceosal1$salary is the salary variable from dataset ceosal1
+1 - (var(u.hat)/var(ceosal1$salary))
+```
+
+```{r}
+#R^2
+(cor(ceosal1$salary, sal.hat))^2
+```
+
+# ex 2.11 log log
+
+```{r}
+# Drop the I() function here
+mod3 <- "log(salary) ~ log(sales)"
+lm3 <- lm(mod3, data=ceosal1)
+```
+
+```{r}
+summary(lm3)
+```
+
+```{r}
+plot(lm3)
+```

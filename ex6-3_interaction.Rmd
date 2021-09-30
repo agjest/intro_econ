@@ -1,0 +1,94 @@
+---
+title: "ex. 6-3 interaction"
+output: html_notebook
+---
+
+Load packages, install them first if not installed.
+
+```{r setup}
+library(tidyverse)
+library(wooldridge)
+library(lmtest)
+library(mctest)
+library(car)
+```
+
+```{r load-data}
+data(attend)
+head(attend)
+```
+
+```{r multicolinearity-lm1}
+mctest(lm1)
+```
+
+Multicollinearity might be a problem.
+
+```{r simp-mod}
+mod1 <- "stndfnl ~ atndrte + priGPA + I(priGPA^2) + ACT + I(ACT^2)"
+lm1 <- lm(mod1, data = attend)
+```
+
+```{r summary-simp-mod}
+summary(lm1)
+```
+
+```{r test-heteroscedasticity}
+bptest(lm1)
+```
+
+```{r interact-mod}
+# note atndrte * priGPA
+mod2 <- "stndfnl ~ atndrte * priGPA + I(priGPA^2) + ACT + I(ACT^2)"
+lm2 <- lm(mod2, data = attend)
+```
+
+```{r summary-interact-mod}
+summary(lm2)
+```
+
+```{r multicolinearity-lm2}
+mctest(lm2)
+```
+
+Multicollinearity might be a problem.
+
+```{r test-heteroscedasticity-interact-mod}
+bptest(lm2)
+```
+
+Heteroscedasticity does not seem to be a problem.
+
+```{r mean_priGPA}
+(mean_priGPA <- mean(attend$priGPA))
+```
+
+```{r diag-plots}
+plot(lm2)
+```
+
+```{r coefs}
+b <- coef(lm2)
+b
+```
+
+```{r marg-effect}
+# Partial effect at priGPA = 2,59
+b["atndrte"] + mean_priGPA * b["atndrte:priGPA"]
+```
+
+Test partial effect
+
+```{r}
+linearHypothesis(lm2, c("atndrte+2.59*atndrte:priGPA"))
+```
+
+Partial effect: 0.0077
+
+H0: partial effect = 0
+
+H1: partial effect ≠ 0
+
+F value 8.6326, Df=1 gives p=0.003415
+
+Conclusion: Partial effect is significantly different from zero.
