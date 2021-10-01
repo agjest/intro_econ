@@ -1,12 +1,402 @@
 ---
 title: "oppgavene 4C1 og 4C3 fra Wooldridge"
-output: html_notebook
+output:
+  pdf_document: default
+  html_document:
+    df_print: paged
 ---
 
 ```{r setup}
 library(wooldridge)
 library(car)
+library(multcomp)
 ```
+
+Dette er viktig stoff og er dekket i avsnittene 4-2c, 4-4 og 4-5.
+Viser først eksemplene fra disse avsnittene løst vha.
+R.
+
+# Eksempler løst i R
+
+## Fra avsnitt 4-2c
+
+### **Ex. 4.4**
+
+Modellen
+
+$$
+\textsf{log(crime)} = \beta_0 + \beta_1 \textsf{log(enroll)} + u
+$$
+
+skriver vi i R som "log(crime) \~ log(enroll)" konstantleddet kommer automatisk.
+Skulle vi ønske *uten* konstantledd (generelt frarådet) skriver vi "log(crime) \~ log(enroll) - 1"
+
+```{r mod_cc}
+data(campus)
+# cc crime campus, finnes også variablene lcrime og lenroll i datasettet der
+# ln av variablene alt er tatt. I R er det like lett å bruke funksjonen selv 
+mod_cc <- "log(crime) ~ log(enroll)" 
+lm_cc <- lm(mod_cc, data=campus)
+# uten konstantledd
+# mod_cc <- "log(crime) ~ log(enroll) - 1"
+```
+
+```{r summary_cc}
+summary(lm_cc)
+```
+
+Elastisiteten for *`campus crime`* mht.
+*`enroll`* (universitetsstørrelse) er altså estimert til $1,2698\approx 1,27$, dvs.
+1% økning i antall studenter gir 1,27% økning i kriminalitet.
+Et sentralt punkt her er om denne elastisiteten er signifikant større enn 1.
+Er den det vil vi ha en *relativ* økning i kriminalitet når størrelsen øker.
+Altså at et dobbelt så stort universitet vil ha *mer enn* dobbelt så høy kriminalitet.
+
+Ønsker å test H0: $\beta_1 = 1$ mot H1: $\beta_1 > 1$.
+I summary ovenfor er det hypotesene H0: $\beta_1 = 0$ mot H1: $\beta_1 > 1$ som blir testet.
+Hva gjør vi?
+Vi regner ut ny t-verdi vha.
+$\frac{\textsf{estimat - verdi i hypotese}}{\textsf{standard error}}$, dvs $\frac{1,2698 - 1}{0,1098}= 2,457$.
+
+Vi må så finne kritisk verdi eller p-verdi (husk ensidig H1 her)
+
+```{r}
+# obs. in campus
+dim(campus)
+num_obs <- dim(campus)[1]
+num_obs
+```
+
+Antall frihetsgrader (95 DF) kan vi også lese direkte ut fra siste linje i summary ovenfor.
+
+p-verdi (For å se fordelinger kjent av base R kjør `?distributions` i Console)
+
+```{r}
+# p-verdi ensidig H1
+pt(2.457, df=num_obs-2, lower.tail = FALSE)
+```
+
+kritisk verdi, ensidig H1 ulike $\alpha$
+
+```{r alpha5}
+# alpha lik 0,05 ensidig
+qt(0.05, df = num_obs-2)
+```
+
+```{r alpha1}
+# alpha lik 0,05 ensidig
+qt(0.01, df = num_obs-2)
+```
+
+Vi ser at $\beta_1$ er signifikant forskjellig fra 1 på nivå $\alpha=1\%$, altså har vi en overproporsjonal økning i kriminalitet når universitetsstørrelsen øker.
+
+For ordens skyld: Wooldrige skriver en del om å lage konfidensintervall.
+For å finne konfidensintervall for modellen ovenfor gjør vi følgende
+
+```{r}
+# default 5% 
+confint(lm_cc)
+```
+
+```{r}
+# 1% 
+confint(lm_cc, level=0.99)
+```
+
+### Ex. 4.5
+
+```{r}
+# Boston housing data; hprice2. Se book or give command ?hprice2 in console
+# for description of the variables
+data(hprice2)
+mod_hp <- "log(price) ~ log(nox) + log(dist) + rooms + stratio"
+lm_hp <- lm(mod_hp, data=hprice2)
+```
+
+```{r}
+summary(lm_hp)
+```
+
+Now $\beta_1$ (coefficient estimate for log(nox) lik -0,9535) er priselastisiteten for boliger mht.
+nox utslipp.
+Vi ønsker å teste H0: $\beta_1=-1$ mot H1: $\beta_1\neq -1$.
+Vi benytter samme teknikk som ovenfor, men husker at nå er alternativ hypotese tosidig.
+Vi regner altså ut ny t-verdi vha.
+$\frac{\textsf{estimat - verdi i hypotese}}{\textsf{standard error}}$, dvs $\frac{-0,9535 - (-1)}{0,1167}= \frac{0,0465}{0,1167}=0,3985$.
+Finner p-verdi og kritiske t-verdier.
+Antall frihetsgrader er 501.
+
+```{r}
+# p-verdi tosidig H1
+2*pt(0.3985, df=501, lower.tail=FALSE)
+```
+
+Kritisk t-verdi 5% nivå
+
+```{r}
+# alpha lik 0,05 tosidig
+qt(0.05/2, df = 501, lower.tail = FALSE)
+```
+
+Vi kan altså ikke forkaste H0, dvs.
+det er lite bevis for at $\beta_1$ er forskjellig fra -1.
+
+## Fra avsnitt 4-4
+
+Testing av hypoteser med én lineær kombinasjon av parametre.
+
+Modellen
+
+$$
+\textsf{log(wage)} = \beta_0 + \beta_1\textsf{jc} + \beta_2\textsf{univ} + \beta_3\textsf{exper} + u
+$$
+
+```{r}
+data(twoyear)
+#variable lwage in dataset is log(wage)
+mod_2y <- "lwage ~ jc + univ +exper"
+lm_2y <- lm(mod_2y, data = twoyear)
+```
+
+```{r}
+summary(lm_2y)
+```
+
+Vi ser at det lønner seg både med junior college (jc) og college (univ), begge koeffisientene er signifikant forskjellig fra 0.
+Det vi er mest interessert i er om $\beta_{\textsf{univ}}$ er *signifikant* større enn $\beta_{\textsf{jc}}$.
+Altså om det *lønner seg* å velge universitet fremfor junior college.
+
+For å test trenger vi å beregne t-verdien $t=\frac{\hat{\beta}_1 - \hat{\beta}_2}{\textsf{se}(\hat{\beta}_1 - \hat{\beta}_2)}$.
+Problemet er at vi *ikke* finner $\textsf{se}(\hat{\beta}_1 - \hat{\beta}_2)$ i standard rapporten for regresjon.
+
+**NB!** $\textsf{se}(\hat{\beta}_1 - \hat{\beta}_2)\neq \textsf{se}(\hat{\beta}_1) - \textsf{se}(\hat{\beta}_2)$
+
+Vi bruker derfor et «triks» der vi skriver om modellen slik at $\textsf{se}(\hat{\beta}_1 - \hat{\beta}_2)$ vil bli rapportert i standard `summary` fra modellen.
+
+Definerer en ny parameter $\theta_1=\beta_1-\beta_2$ som gir at $\beta_1 = \theta_1 + \beta_2$.
+Det vi ønsker å teste er H0: $\theta=0$ mot H1: $\theta<0$.
+Vi er nå på jakt etter $\textsf{se}(\theta_1)$ som vil være lik $\textsf{se}(\hat{\beta}_1 - \hat{\beta}_2)$.
+Vi kan da skrive om modellen som
+
+$$
+\textsf{log(wage)} = \beta_0 + \beta_1\textsf{jc} + \beta_2\textsf{univ} + \beta_3\textsf{exper} + u = \beta_0 + (\theta_1 + \beta_2)\textsf{jc} + \beta_2\textsf{univ} + \beta_3\textsf{exper} + u 
+$$
+
+som gir$$
+\textsf{log(wage)}= \beta_0 + \theta_1\textsf{jc} + \beta_2(\textsf{univ} +  \textsf{jc}) + \beta_3\textsf{exper} + u
+$$
+
+Vi kan altså få tak i $\textsf{se}(\hat{\beta}_1 - \hat{\beta}_2)$ ved å kjøre modellen
+
+```{r}
+# Legg merke til bruk av I() funksjonen. Denne trengs siden + har  en spesiell
+# betydning i R sitt formula «språk». Inne i I() blir det summen av univ og exper for
+# hver student
+mod_2y_b <- "lwage ~ jc + I(univ + jc) + exper"
+lm_2y_b <- lm(mod_2y_b, data = twoyear)
+```
+
+```{r}
+summary(lm_2y_b)
+```
+
+Da kan vi lese ut standard error for $\theta_1$, som jo også er standard error for $(\hat{\beta}_1 - \hat{\beta}_2)$ som var det vi var på jakt etter.
+Da kan vi enkelt regne ut t-verdien
+
+$$
+t=\frac{\hat{\beta}_1 - \hat{\beta}_2}{\textsf{se}(\hat{\beta}_1 - \hat{\beta}_2)} = \frac{-0,01018}{0,00694}\approx -1,467
+$$
+
+Finner p-verdi (ensidig)
+
+```{r}
+# p-verdi ensidig H1
+pt(-1.467, df=6759)
+```
+
+Vi kan altså *ikke* på 5% nivå konkludere med at et år utdanning på college gir signifikant høyere lønn enn et år på junior college.
+På 10% nivå derimot kan vi konkludere med at et år på college gir signifikant mer uttelling i lønn enn et år på junior college.
+
+Teknikken ovenfor kan vi *alltid* få til i et statistikkprogram.
+Finnes imidlertid pakker/rutiner som forsøker å forenkle dette.
+To slike, *car* og *multcomp* er vist nedenfor.
+Begge bruker F-test (istdenfor t-test) som samsvarer mer med avsnitt 4-5, men konklusjonene blir de samme.
+
+#### Med pakken `car`
+
+Enklere måte (bruker F-test jmf. avsnitt 4-5)
+
+```{r}
+# vi har lastet car så linearHypothesis er tilgjengelig
+linearHypothesis(lm_2y, "jc - univ = 0")
+```
+
+```{r}
+pf(2.154, 1, Inf, lower.tail = FALSE)
+```
+
+Som en ser er resultatet ovenfor tosidig H1, ønsker en ensidig H1: $\beta_1 < \beta_2$ blir $p = 0,142199/2\approx 0,071$.
+
+Kritisk verdi 10%, 5% og 1% nivå
+
+```{r}
+# alpha 10% ensidig
+qt(0.1, df = 6759, lower.tail = FALSE)
+```
+
+```{r}
+# alpha 5% ensidig
+qt(0.05, df = 6759, lower.tail = FALSE)
+```
+
+```{r}
+# alpha 1% ensidig
+qt(0.01, df = 6759, lower.tail = FALSE)
+```
+
+Vi ser at vi kan forkast H0 på 10% nivå, men ikke på 5% nivå.
+
+#### Med pakken `multcomp`
+
+Med pakken `multcomp` er det enkelt å formulere ensidige hypoteser også.
+Denne er kanskje den enkleste å bruke.
+
+```{r}
+library(multcomp)
+# Specify the linear hypothesis
+glht_mod <- glht(
+  model = lm_2y, 
+  linfct = c("jc - univ <= 0")
+)
+
+# Inspect summary 
+summary(glht_mod)
+```
+
+$\textsf{Pr}(<t) = 1 - \textsf{Pr}(>t) = 1 - 0,929 = 0,071$
+
+```{r}
+# Inspect confidence interval
+confint(glht_mod)
+```
+
+## Gjennomgangseksemplet avsnitt 4-5
+
+Baseball (mlb1)
+
+```{r}
+data(mlb1)
+mod_bb <- "log(salary) ~ years + gamesyr + bavg + hrunsyr + rbisyr"
+lm_bb <- lm(mod_bb, data = mlb1)
+```
+
+Historien er da at variablene `bavg, hrunsyr, rbisyr` angir spillernes individuelle ferdigheter.
+Spørsmålet er om dette betyr noe for lønn eller om det bare er hvor lenge en har spillet (year) og gjennomsnittlig antall kamper per år en har fått spillet som bestemmer lønnsnivået.
+
+```{r}
+summary(lm_bb)
+```
+
+Det vi ønsker å teste er om individuelle ferdigheter er overflødig i modellen, dvs om $\beta_3=0$, $\beta_4 = 0$ og $\beta_5 = 0$.
+
+Læreboken gjør dette «manuelt» vha.
+SSR fra restricted og unrestricted model.
+
+```{r}
+mod_bb_r <- "log(salary) ~ years + gamesyr"
+lm_bb_r <- lm(mod_bb_r, data = mlb1)
+```
+
+```{r}
+summary(lm_bb_r)
+```
+
+```{r}
+(ssr_u <- sum(residuals(lm_bb)^2))
+```
+
+```{r}
+(ssr_r <- sum(residuals(lm_bb_r)^2))
+```
+
+F verdien blir da (n=353 obs, k =5 og q = 3
+
+```{r}
+(F_bb <- (ssr_r -ssr_u)/ssr_u * ((353-5-1)/3))
+```
+
+F-verdien kan så sjekkes opp mot tabell eller
+
+```{r}
+pf(9.5503, 3, 347, lower.tail = FALSE)
+```
+
+Kritisk verdi 1%
+
+```{r}
+qf(c(0.005, 0.995), 3, 347)
+```
+
+Vi ser at vi kan forkaste hypotesen om at individuelle ferdigheter ikke har betydning for lønnen.
+
+#### Samme med bruk av `linearHypothesis`
+
+```{r}
+linearHypothesis(lm_bb, "bavg + hrunsyr + rbisyr = 0")
+```
+
+#### Samme med bruk av `multcomp`
+
+```{r}
+# Specify the linear hypothesis
+glht_mod <- glht(
+  model = lm_bb, 
+  linfct = c("bavg + hrunsyr + rbisyr = 0")
+)
+
+# Inspect summary 
+summary(glht_mod)
+```
+
+Den ene bruker t-verdi, den andre F-verdi men konklusjonen blir den samme.
+
+### Ex. 4.9
+
+```{r}
+data(bwght)
+summary(bwght[,4:7])
+```
+
+We have 196 NA in fatheduc and 1 in motheduc.
+We choose to work with complete cases.
+
+```{r}
+mod_bw <- "bwght ~ cigs + parity + faminc + motheduc +fatheduc"
+lm_bw <- lm(mod_bw, data = bwght[complete.cases(bwght),])
+```
+
+```{r}
+summary(lm_bw)
+```
+
+```{r}
+linearHypothesis(lm_bw, "motheduc +  fatheduc = 0")
+```
+
+```{r}
+# Specify the linear hypothesis
+glht_mod_bw <- glht(
+  model = lm_bw, 
+  linfct = c("motheduc +  fatheduc = 0")
+)
+
+# Inspect summary 
+summary(glht_mod_bw)
+```
+
+Mor og fars utdannelse blir ikke-signifikant når variablene `cigs`, `parity` og `faminc` blir inkludert.
+
+# Oppgavene
 
 Oppgave 4C1
 
@@ -41,5 +431,5 @@ summary(lm1)
 ```
 
 Vi ser fra summaryat de estimerte koeffisientene for `log(expendA)` er 6.08332 og -6.61542 for `log(expendB)`.
-En økning på 1% i expendA vil altså gi 6,1 prosentpoeng økning i andelen stemmer for kandidat A.
-Likeledes vil 1% økning i expendB, alle andre variabler holdt fast, gi en reduksjon på 6,62 prosentpoeng i kandidat As andel av stemmene.
+En økning på 1% i expendA vil altså gi 6,1/100 = 0,0608 prosentpoeng økning i andelen stemmer for kandidat A.
+Likeledes vil 1% økning i expendB, alle andre variabler holdt fast, gi en reduksjon på 6,62/100 = 0,0662 prosentpoeng i kandidat As andel av stemmene.
