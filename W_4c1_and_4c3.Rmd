@@ -8,9 +8,89 @@ output:
 
 ```{r setup}
 library(wooldridge)
+library(tidyverse)
 library(car)
 library(multcomp)
+library(mctest)
+library(lmtest)
 ```
+
+# Aller først; standard lineær regresjon i R
+
+R bruker en såkalt `formula` for å spesifisere modellen.
+Dette innebærer at operasjoner som "+", "-", ":", "\*", "\^" og tom.
+"%in" får helt ny betyding (se ?formula for detaljer).
+Ønsker vi at de skal ha sin vanlige betydning må vi sette dem inn i en `I()` funksjon (fra help: *Change the class of an object to indicate that it should be treated 'as is'.)*.
+Funksjoner kan vi fritt bruke inne i en formula så vi kan gjerne ha `log(price)` som en variabel.
+Det er ingen grunn til først å lage en ny variabel `lprice = log(price)`.
+
+For å vise hvordan en enkel multippel regresjon kan formuleres og tolkes i R kan vi ta utgangspunkt i eksempel 3.6.
+
+```{r}
+data(crime1)
+```
+
+```{r}
+# spesifiserer modellen, _mr for multippel regresjon
+mod_mr = "narr86 ~ pcnv + avgsen + ptime86 + qemp86"
+lm_mr <- lm(mod_mr, data=crime1)
+```
+
+For å se rapporten fra regresjonen kan vi skrive:
+
+```{r}
+summary(lm_mr)
+```
+
+Her er da en standard rapport fra en regresjon, med estimerte koeffisienter, se og t-verdi for å teste om koeffisientene er forskjellig fra.
+
+Ønsker vi mer diagnostikk for modellen kan vi
+
+```{r}
+plot(lm_mr)
+```
+
+Ønsker vi å sjekke om residualene er normalfordelt kan vi grafisk utforske dette vha.
+
+```{r}
+data.frame(res=residuals(lm_mr)) %>% 
+  ggplot(mapping=aes(x=res)) +
+  geom_histogram(binwidth = .25)
+```
+
+Ser ikke så bra ut.
+Kanskje vi skal prøve med å log-transformere avhengig variabel.
+Sjekker først variabelen vha.
+summary
+
+```{r}
+summary(crime1$narr86)
+```
+
+Ser at vi har mange verdier lik 0, går ikke bra med ln.
+Et «triks» som ofte blir brukt er å legge til 1.
+Vi må huske at bruker vi «+» så må denne beskyttes av I() i en formula.
+
+```{r}
+mod_mr_2 = "log(I(narr86 + 1)) ~ pcnv + avgsen + ptime86 + qemp86"
+lm_mr_2 <- lm(mod_mr_2, data=crime1)
+```
+
+```{r}
+summary(lm_mr_2)
+```
+
+Sjekker residualene på ny
+
+```{r}
+data.frame(res = as.numeric(residuals(lm_mr_2))) %>% 
+  ggplot(mapping=aes(x = res)) +
+  geom_histogram(binwidth = .05)
+```
+
+Kanskje noe bedre, men residualene ser ut til å være alngt fra normalfordelt.
+
+# Restricted models
 
 Dette er viktig stoff og er dekket i avsnittene 4-2c, 4-4 og 4-5.
 Viser først eksemplene fra disse avsnittene løst vha.
