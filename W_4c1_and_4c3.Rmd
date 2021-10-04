@@ -1,9 +1,12 @@
 ---
 title: "oppgavene 4C1 og 4C3 fra Wooldridge"
 output:
-  pdf_document: default
   html_document:
     df_print: paged
+  pdf_document: default
+editor_options: 
+  markdown: 
+    wrap: sentence
 ---
 
 ```{r setup}
@@ -478,7 +481,7 @@ Mor og fars utdannelse blir ikke-signifikant når variablene `cigs`, `parity` og
 
 # Oppgavene
 
-Oppgave 4C1
+## Oppgave 4C1
 
 i.  Tolkning $\beta_1$?
 
@@ -496,20 +499,118 @@ i.  Tolkning $\beta_1$?
     Et viktig poeng er at den første størrelsen er *prosentpoeng* mens den andre er en relativ størrelse (*prosentvis endring*).
     Disse to begrepene blandes ofte.
 
-ii. H0: $\beta_1 = -\beta_2$ eller H0: $\beta_1 + \beta\_2 = 0$.
-    Altså har vi at hvis expendA og expendB økes med samme prosentvise størrelse (f.eks fra 10 mill. til 10,5 mill. for A og fra 30 mill. til 31,5 mill. for B) så vil As andel av stemmene være uendret.
+ii. H0: $\beta_1 = -\beta_2$ eller H0: $\beta_1 + \beta_2 = 0$.
 
-    ```{r 41cii}
-    # load dataset vote1 from wooldridge package
-    data(vote1)
-    mod1 <- "voteA ~ log(expendA) + log(expendB) + prtystrA"
-    lm1 <- lm(mod1, data=vote1)
-    ```
+iii. Altså har vi at hvis expendA og expendB økes med samme prosentvise størrelse (f.eks fra 10 mill. til 10,5 mill. for A og fra 30 mill. til 31,5 mill. for B) så vil As andel av stemmene være uendret.
+
+```{r 41cii}
+     # load dataset vote1 from wooldridge package
+     data(vote1)
+     mod1 <- "voteA ~ log(expendA) + log(expendB) + prtystrA"
+     lm1 <- lm(mod1, data=vote1)
+```
 
 ```{r summary-lm1}
 summary(lm1)
 ```
 
-Vi ser fra summaryat de estimerte koeffisientene for `log(expendA)` er 6.08332 og -6.61542 for `log(expendB)`.
+Vi ser fra summary at de estimerte koeffisientene for `log(expendA)` er 6.08332 og -6.61542 for `log(expendB)`.
 En økning på 1% i expendA vil altså gi 6,1/100 = 0,0608 prosentpoeng økning i andelen stemmer for kandidat A.
 Likeledes vil 1% økning i expendB, alle andre variabler holdt fast, gi en reduksjon på 6,62/100 = 0,0662 prosentpoeng i kandidat As andel av stemmene.
+Vi kan ikke teste hypotesen fra ii) utfra resultatene ovenfor siden vi ikke kjenner $\textsf{se}(\beta_1-\beta_2)$.
+
+iv. For å teste hypotesen fra ii) må vi enten skrive om modellen med $\theta_1 = \beta_1 + \beta_2$ som gir $\beta_1 = \theta_1 - \beta_2$.
+    Vi setter inn i modellen og får
+
+    $$
+    \textsf{voteA} = \beta_0 + (\theta_1 - \beta_2) \textsf{log(expendA)} + \beta_2 \textsf{log(expendB)} + \beta_3 \textsf{prtystrA}
+    $$
+
+som gir oss
+
+$$
+\textsf{voteA} = \beta_0 + \theta_1 \textsf{log(expendA)} + \beta_2 (\textsf{log(expendB) - log(expendA))} + \beta_3 \textsf{prtystrA}
+$$
+
+Vi kan nå kjøre en standard regresjon på denne modellen og standard error for koeffisienten til `log(expendA)` vil være $\textsf{se}(\beta_1-\beta_2)$ som vi manglet.
+
+```{r}
+# Merk bruk av I() funksjonen. Inne i denne virker +, * etc som
+# vanlig og ikke som operasjoner i Rs formula språk
+mod2_r <- "voteA ~ log(expendA) + I(log(expendA) - log(expendB)) + prtystrA"
+lm2_r <- lm(mod2_r, data=vote1)
+```
+
+```{r}
+summary(lm2_r)
+```
+
+Da får vi at $t=\frac{-0.53210}{0.53309} = -0.9981429$.
+Vi kan altså ikke forkaste H0.
+
+Gjøre det samme «automagisk» i R
+
+```{r}
+linearHypothesis(lm1, "log(expendA) + log(expendB) = 0")
+```
+
+Her altså F-test, mens t-ovenfor.
+Merk at $t^2 = F$.
+Så $-0.9981429^2 = 0,99629$.
+
+```{r, eval=FALSE}
+# Vil ikke virke her. Usikker på hvorfor
+glht_mod2_r <- glht(
+  model = lm1, 
+  linfct = c("log(expendA) + log(expendB) = 0")
+)
+
+# Inspect summary 
+summary(glht_mod2_r)
+```
+
+## Oppgave 4C1
+
+i)  
+
+```{r}
+mod_hp_1 <- "log(price) ~ sqrft + bdrms"
+lm_hp_1 <- lm(mod_hp_1, data = hprice1)
+```
+
+```{r}
+summary(lm_hp_1)
+```
+
+Dette gir oss at $\theta_1 = 150 \beta_1 +\beta_2 = 150 \cdot 0.0003794 + 0.02888 = 0,0858$.
+Dvs.
+prisen øker med 8,58%.
+
+ii) Vi har $\theta = 150 \beta_1 + \beta_2$ som gir $\beta_2 = \theta - 150 \beta_1$. Setter inn for $\beta_2$ og får
+
+$$
+\textsf{log}(price) = \beta_0 + \beta_1 \textsf{sqrft} + (\theta - 150 \beta_1) \textsf{bdrms} + u = \beta_0 + \theta \textsf{bdrms} + \beta_1 (\textsf{sqrft} - 150 \textsf{bdrms}) + u
+$$
+
+```{r}
+# hprice1
+mod_hp <- "log(price) ~ bdrms + I(sqrft - 150 * bdrms)"
+lm_hp <- lm(mod_hp, data = hprice1)
+```
+
+```{r}
+summary(lm_hp)
+```
+
+Ser at $\theta_1 = 8.580e-02 = 0,0858$.
+
+iii) Er nok $\theta_1$ og *ikke* $\theta_2$ som menes. Ser at standard error er $4.321·10^{-05}$.
+
+Gjør det enkelt og finner konfidensintervall vha.
+`confint`
+
+```{r}
+confint(lm_hp)
+```
+
+altså fra 3,258% til 13,902%.
