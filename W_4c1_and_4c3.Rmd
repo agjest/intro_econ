@@ -1,21 +1,22 @@
 ---
-title: "oppgavene 4C1 og 4C3 fra Wooldridge"
+title: "Om oppgavene 4C1 og 4C3 fra Wooldridge"
 output:
+  pdf_document: default
   html_document:
     df_print: paged
-  pdf_document: default
 editor_options: 
   markdown: 
     wrap: sentence
 ---
 
 ```{r setup}
-library(wooldridge)
-library(tidyverse)
-library(car)
-library(multcomp)
-library(mctest)
-library(lmtest)
+suppressPackageStartupMessages(library(wooldridge))
+suppressPackageStartupMessages(library(tidyverse))
+suppressPackageStartupMessages(library(car))
+suppressPackageStartupMessages(library(multcomp))
+suppressPackageStartupMessages(library(olsrr))
+suppressPackageStartupMessages(library(mctest))
+suppressPackageStartupMessages(library(lmtest))
 ```
 
 # Aller først; standard lineær regresjon i R
@@ -25,17 +26,23 @@ Dette innebærer at operasjoner som "+", "-", ":", "\*", "\^" og tom.
 "%in" får helt ny betyding (se ?formula for detaljer).
 Ønsker vi at de skal ha sin vanlige betydning må vi sette dem inn i en `I()` funksjon (fra help: *Change the class of an object to indicate that it should be treated 'as is'.)*.
 Funksjoner kan vi fritt bruke inne i en formula så vi kan gjerne ha `log(price)` som en variabel.
-Det er ingen grunn til først å lage en ny variabel `lprice = log(price)`.
+Det er altså ingen grunn til først å lage en ny variabel `lprice = log(price)`.
 
-For å vise hvordan en enkel multippel regresjon kan formuleres og tolkes i R kan vi ta utgangspunkt i eksempel 3.6.
+For å vise hvordan en enkel multippel regresjon kan formuleres og tolkes i R kan vi ta utgangspunkt i eksempel 3.5 Wooldridge.
+Pakken `wooldridge` er lastet så vi trenger bare
 
 ```{r}
 data(crime1)
 ```
 
+for å få tilgang til datasettet `crime1`.
+Sjekker vi klassen til crime1 vha.
+\``` class(crime1)` `` får vi til svar: `r class(crime1)`.
+Dataene er altså klar til bruk.
+
 ```{r}
 # spesifiserer modellen, _mr for multippel regresjon
-mod_mr = "narr86 ~ pcnv + avgsen + ptime86 + qemp86"
+mod_mr = "narr86 ~ pcnv + ptime86 + qemp86"
 lm_mr <- lm(mod_mr, data=crime1)
 ```
 
@@ -45,7 +52,17 @@ For å se rapporten fra regresjonen kan vi skrive:
 summary(lm_mr)
 ```
 
-Her er da en standard rapport fra en regresjon, med estimerte koeffisienter, se og t-verdi for å teste om koeffisientene er forskjellig fra.
+Her er da en standard rapport fra en regresjon, med estimerte koeffisienter, standard-feil og t-verdier for å teste om koeffisientene er forskjellig fra 0.
+
+Vi ser at alle koeffisientene er klart signifikant forskjellige fra null.
+Fortegnene er også som forventet
+
+-   Datasettet inneholder informasjon om menn fra California født 1960 eller 1961 som har vært arrestert *minst* en gang i årene før 1986.
+-   narr86: antall ganger en person ble arrestert i 1986
+-   pcnv: andel av arresterte før 1986 som ble dømt. Koeffisienten ha verdien -0,1499, dvs alt annet like vil høyere andel dømt føre til færre arrestasjoner 1986.
+-   avgsen: gjennomsnittlig straff sonet for tidligere forhold
+-   ptime86: antall måneder sonet i fengsel i 1986. Koeffisienten har verdien -0,0344, dvs. dess mer tid i fengsel 1986 dess færre arrestasjoner (vanskelig å bli arrestert hvis du alt soner)
+-   qemp86: muligheter for å få jobb 1986. Koeffisienten er -0,1041, dvs. dess bedre jobbmarkedet er dess færre arrestasjoner.
 
 Ønsker vi mer diagnostikk for modellen kan vi
 
@@ -53,10 +70,26 @@ Her er da en standard rapport fra en regresjon, med estimerte koeffisienter, se 
 plot(lm_mr)
 ```
 
+Så utvider vi modellen med å ta med variabelen `avgsen`.
+Dette gir oss
+
+```{r}
+mod_mr_2 = "narr86 ~ pcnv + avgsen + ptime86 + qemp86"
+lm_mr_2 <- lm(mod_mr_2, data=crime1)
+```
+
+```{r}
+summary(lm_mr_2)
+```
+
+Ser at variabelen `avgsen` bare gir en liten økning i R-squared, koeffisienten er ikke signifikant og fortegnet er motsatt av forventet.
+Positivt fortegn, dvs at lengre straffer skulle medføre flere arrestasjoner.
+Taler for at `avgsen` kanskje ikke er en god forklaringsvariabel.
+
 Ønsker vi å sjekke om residualene er normalfordelt kan vi grafisk utforske dette vha.
 
 ```{r}
-data.frame(res=residuals(lm_mr)) %>% 
+data.frame(res=residuals(lm_mr_2)) %>% 
   ggplot(mapping=aes(x=res)) +
   geom_histogram(binwidth = .25)
 ```
@@ -71,27 +104,92 @@ summary(crime1$narr86)
 ```
 
 Ser at vi har mange verdier lik 0, går ikke bra med ln.
-Et «triks» som ofte blir brukt er å legge til 1.
+Et «triks» som ofte blir brukt er å legge til en liten positiv verdi, f.eks 0.01.
 Vi må huske at bruker vi «+» så må denne beskyttes av I() i en formula.
 
 ```{r}
-mod_mr_2 = "log(I(narr86 + 1)) ~ pcnv + avgsen + ptime86 + qemp86"
-lm_mr_2 <- lm(mod_mr_2, data=crime1)
+mod_mr_2_log = "log(I(narr86 + 0.01)) ~ pcnv + avgsen + ptime86 + qemp86"
+lm_mr_2_log <- lm(mod_mr_2_log, data=crime1)
 ```
 
 ```{r}
-summary(lm_mr_2)
+summary(lm_mr_2_log)
 ```
+
+Vi ser at log-transformasjonen av den avhengige variabelen øker $R^2$ .
+Variabelen `avgsen` er fremdeles ikke signifikant og har motsatt fortegn fra forventet.
 
 Sjekker residualene på ny
 
 ```{r}
-data.frame(res = as.numeric(residuals(lm_mr_2))) %>% 
+data.frame(res = as.numeric(residuals(lm_mr_2_log))) %>% 
   ggplot(mapping=aes(x = res)) +
   geom_histogram(binwidth = .05)
 ```
 
-Kanskje noe bedre, men residualene ser ut til å være alngt fra normalfordelt.
+Kanskje noe bedre, men residualene ser ut til å være langt fra normalfordelt.
+
+Ønsker en å teste nærmere en regresjonsmodell er pakken `olsrr` et flott verktøy.
+Pakken har utmerket dokumentasjon (se [intro olsrr](https://cran.uib.no/web/packages/olsrr/vignettes/intro.html "intro olsrr") ) og er laget spesielt mht.
+å teste om forutsetningene for en lineær regresjon er brutt.
+Vi bruker modellen `lm_mr_2` siden `olsrr` ikke ser ut til å like modeller som inneholder bruk av `I()` funksjonen, dvs.
+skulle vi brukt modellen `lm_mr_2_log` måtte vi først laget oss en ny variabel `lnarr86 = log(narr86 + 0.01)`.
+
+```{r}
+ols_plot_diagnostics(lm_mr_2)
+```
+
+Vi ser klart at det er problemer forbundet med modellen vår.
+
+#### Test for normalitet residualer
+
+```{r}
+ols_test_normality(lm_mr_2)
+```
+
+Samtlige tester gir at vi kan forkaste null-hypotesen om normalfordelte residualer.
+
+```{r}
+ols_plot_resid_qq(lm_mr_2)
+```
+
+Hvis residualene skulle være normalfordelt skulle de blå prikkene ligge langs en tilnærmet rett linje.
+Vi ser igjen at residualene i regresjonen ikke er normalfordelte.
+
+```{r}
+ols_plot_resid_hist(lm_mr_2)
+```
+
+Igjen liten støtte for antakelsen om normalfordelte residualer.
+
+#### Test for heteroskedastisitet
+
+En poplær test for heteroskedastisitet er Breusch-Pagan.
+
+```{r}
+ols_test_breusch_pagan(lm_mr_2)
+```
+
+Vi ser at vi kan forkaste null-hypotesen om konstant varians.
+
+#### Plot av residualer mot modellverdier (fitted values)
+
+Et annet populært diagnose-plot er «Residuals vs Fitted Values».
+
+```{r}
+ols_plot_resid_fit(lm_mr_2)
+```
+
+Ser ikke bra ut.
+Burde ligge som et tilfeldig jevnt bånd langs den horisontale aksen uten noe klarer mønster.
+
+Til sist er det verdt å nevne at `olsrr` også har en informativ regresjon-rapport.
+
+```{r}
+ols_regress(lm_mr_2)
+```
+
+Vi ser at rapporten bl.a inneholder konfidensintervall for koeffisientene (lower upper).
 
 # Restricted models
 
@@ -136,7 +234,7 @@ Er den det vil vi ha en *relativ* økning i kriminalitet når størrelsen øker.
 Altså at et dobbelt så stort universitet vil ha *mer enn* dobbelt så høy kriminalitet.
 
 Ønsker å test H0: $\beta_1 = 1$ mot H1: $\beta_1 > 1$.
-I summary ovenfor er det hypotesene H0: $\beta_1 = 0$ mot H1: $\beta_1 > 1$ som blir testet.
+I summary ovenfor er det hypotesene H0: $\beta_1 = 0$ mot H1: $\beta_1 \neq 1$ som blir testet.
 Hva gjør vi?
 Vi regner ut ny t-verdi vha.
 $\frac{\textsf{estimat - verdi i hypotese}}{\textsf{standard error}}$, dvs $\frac{1,2698 - 1}{0,1098}= 2,457$.
@@ -163,12 +261,12 @@ kritisk verdi, ensidig H1 ulike $\alpha$
 
 ```{r alpha5}
 # alpha lik 0,05 ensidig
-qt(0.05, df = num_obs-2)
+qt(0.05, df = num_obs-2, lower.tail = FALSE)
 ```
 
 ```{r alpha1}
 # alpha lik 0,05 ensidig
-qt(0.01, df = num_obs-2)
+qt(0.01, df = num_obs-2, lower.tail = FALSE)
 ```
 
 Vi ser at $\beta_1$ er signifikant forskjellig fra 1 på nivå $\alpha=1\%$, altså har vi en overproporsjonal økning i kriminalitet når universitetsstørrelsen øker.
@@ -189,7 +287,7 @@ confint(lm_cc, level=0.99)
 ### Ex. 4.5
 
 ```{r}
-# Boston housing data; hprice2. Se book or give command ?hprice2 in console
+# Boston housing data; hprice2. See Wooldridge or give command ?hprice2 in console
 # for description of the variables
 data(hprice2)
 mod_hp <- "log(price) ~ log(nox) + log(dist) + rooms + stratio"
@@ -219,6 +317,13 @@ Kritisk t-verdi 5% nivå
 ```{r}
 # alpha lik 0,05 tosidig
 qt(0.05/2, df = 501, lower.tail = FALSE)
+```
+
+For ordens skyld også
+
+```{r}
+# alpha lik 0,05 tosidig
+qt(0.05/2, df = 501, lower.tail = TRUE)
 ```
 
 Vi kan altså ikke forkaste H0, dvs.
@@ -273,7 +378,7 @@ Vi kan altså få tak i $\textsf{se}(\hat{\beta}_1 - \hat{\beta}_2)$ ved å kjø
 
 ```{r}
 # Legg merke til bruk av I() funksjonen. Denne trengs siden + har  en spesiell
-# betydning i R sitt formula «språk». Inne i I() blir det summen av univ og exper for
+# betydning i R sitt formula «språk». Inne i I() blir det summen av univ og jc for
 # hver student
 mod_2y_b <- "lwage ~ jc + I(univ + jc) + exper"
 lm_2y_b <- lm(mod_2y_b, data = twoyear)
@@ -298,7 +403,7 @@ pt(-1.467, df=6759)
 ```
 
 Vi kan altså *ikke* på 5% nivå konkludere med at et år utdanning på college gir signifikant høyere lønn enn et år på junior college.
-På 10% nivå derimot kan vi konkludere med at et år på college gir signifikant mer uttelling i lønn enn et år på junior college.
+På 10% nivå derimot kan vi konkludere med at ett år på college gir signifikant mer uttelling i lønn enn ett år på junior college.
 
 Teknikken ovenfor kan vi *alltid* få til i et statistikkprogram.
 Finnes imidlertid pakker/rutiner som forsøker å forenkle dette.
@@ -315,29 +420,11 @@ linearHypothesis(lm_2y, "jc - univ = 0")
 ```
 
 ```{r}
+# pf: p value F distribution
 pf(2.154, 1, Inf, lower.tail = FALSE)
 ```
 
 Som en ser er resultatet ovenfor tosidig H1, ønsker en ensidig H1: $\beta_1 < \beta_2$ blir $p = 0,142199/2\approx 0,071$.
-
-Kritisk verdi 10%, 5% og 1% nivå
-
-```{r}
-# alpha 10% ensidig
-qt(0.1, df = 6759, lower.tail = FALSE)
-```
-
-```{r}
-# alpha 5% ensidig
-qt(0.05, df = 6759, lower.tail = FALSE)
-```
-
-```{r}
-# alpha 1% ensidig
-qt(0.01, df = 6759, lower.tail = FALSE)
-```
-
-Vi ser at vi kan forkast H0 på 10% nivå, men ikke på 5% nivå.
 
 #### Med pakken `multcomp`
 
@@ -363,9 +450,13 @@ $\textsf{Pr}(<t) = 1 - \textsf{Pr}(>t) = 1 - 0,929 = 0,071$
 confint(glht_mod)
 ```
 
+Vi ser at konfidensintervallet inneholder null så vi kan ikke forkaste at $\beta_1 = \beta_2$, dvs.
+vi kan ikke forkaste at jc gir samme uttelling som univ på 5% nivå.
+
 ## Gjennomgangseksemplet avsnitt 4-5
 
-Baseball (mlb1)
+Baseball (mlb1).
+Vi trenger ikke forstå baseball for å kunne forstå eksemplet.
 
 ```{r}
 data(mlb1)
@@ -374,7 +465,7 @@ lm_bb <- lm(mod_bb, data = mlb1)
 ```
 
 Historien er da at variablene `bavg, hrunsyr, rbisyr` angir spillernes individuelle ferdigheter.
-Spørsmålet er om dette betyr noe for lønn eller om det bare er hvor lenge en har spillet (year) og gjennomsnittlig antall kamper per år en har fått spillet som bestemmer lønnsnivået.
+Spørsmålet er om dette betyr noe for lønn eller om det bare er hvor lenge en har spillet (years) og gjennomsnittlig antall kamper per år en har fått spille (gamesyr) som bestemmer lønnsnivået.
 
 ```{r}
 summary(lm_bb)
@@ -425,7 +516,7 @@ Vi ser at vi kan forkaste hypotesen om at individuelle ferdigheter ikke har bety
 #### Samme med bruk av `linearHypothesis`
 
 ```{r}
-linearHypothesis(lm_bb, "bavg + hrunsyr + rbisyr = 0")
+linearHypothesis(lm_bb, c("bavg = 0", "hrunsyr = 0", "rbisyr = 0"))
 ```
 
 #### Samme med bruk av `multcomp`
@@ -441,7 +532,7 @@ glht_mod <- glht(
 summary(glht_mod)
 ```
 
-Den ene bruker t-verdi, den andre F-verdi men konklusjonen blir den samme.
+`multcomp` bruker her en mer avansert simultan test (som jeg ikke tror vi skal bekymre oss om å forstå nå), men konklusjonen blir den samme.
 
 ### Ex. 4.9
 
@@ -450,8 +541,8 @@ data(bwght)
 summary(bwght[,4:7])
 ```
 
-We have 196 NA in fatheduc and 1 in motheduc.
-We choose to work with complete cases.
+Vi har 196 NA i `fatheduc` og 1 i `motheduc`.
+Vi velger å jobbe med komplette observasjoner.
 
 ```{r}
 mod_bw <- "bwght ~ cigs + parity + faminc + motheduc +fatheduc"
@@ -466,7 +557,9 @@ summary(lm_bw)
 linearHypothesis(lm_bw, "motheduc +  fatheduc = 0")
 ```
 
-```{r}
+Dropper å kjøre den simultane testen fra `multcomp`.
+
+```{r, eval=FALSE}
 # Specify the linear hypothesis
 glht_mod_bw <- glht(
   model = lm_bw, 
@@ -501,7 +594,7 @@ i.  Tolkning $\beta_1$?
 
 ii. H0: $\beta_1 = -\beta_2$ eller H0: $\beta_1 + \beta_2 = 0$.
 
-iii. Altså har vi at hvis expendA og expendB økes med samme prosentvise størrelse (f.eks fra 10 mill. til 10,5 mill. for A og fra 30 mill. til 31,5 mill. for B) så vil As andel av stemmene være uendret.
+iii. Hvis expendA og expendB økes med samme prosentvise størrelse (f.eks fra 10 mill. til 10,5 mill. for A og fra 30 mill. til 31,5 mill. for B) vil As andel av stemmene være uendret?
 
 ```{r 41cii}
      # load dataset vote1 from wooldridge package
@@ -519,7 +612,7 @@ En økning på 1% i expendA vil altså gi 6,1/100 = 0,0608 prosentpoeng økning 
 Likeledes vil 1% økning i expendB, alle andre variabler holdt fast, gi en reduksjon på 6,62/100 = 0,0662 prosentpoeng i kandidat As andel av stemmene.
 Vi kan ikke teste hypotesen fra ii) utfra resultatene ovenfor siden vi ikke kjenner $\textsf{se}(\beta_1-\beta_2)$.
 
-iv. For å teste hypotesen fra ii) må vi enten skrive om modellen med $\theta_1 = \beta_1 + \beta_2$ som gir $\beta_1 = \theta_1 - \beta_2$.
+iv. For å teste hypotesen fra ii) må vi skrive om modellen med $\theta_1 = \beta_1 + \beta_2$ som gir $\beta_1 = \theta_1 - \beta_2$.
     Vi setter inn i modellen og får
 
     $$
@@ -558,18 +651,7 @@ Her altså F-test, mens t-ovenfor.
 Merk at $t^2 = F$.
 Så $-0.9981429^2 = 0,99629$.
 
-```{r, eval=FALSE}
-# Vil ikke virke her. Usikker på hvorfor
-glht_mod2_r <- glht(
-  model = lm1, 
-  linfct = c("log(expendA) + log(expendB) = 0")
-)
-
-# Inspect summary 
-summary(glht_mod2_r)
-```
-
-## Oppgave 4C1
+## Oppgave 4C3
 
 i)  
 
@@ -586,10 +668,10 @@ Dette gir oss at $\theta_1 = 150 \beta_1 +\beta_2 = 150 \cdot 0.0003794 + 0.0288
 Dvs.
 prisen øker med 8,58%.
 
-ii) Vi har $\theta = 150 \beta_1 + \beta_2$ som gir $\beta_2 = \theta - 150 \beta_1$. Setter inn for $\beta_2$ og får
+ii) Vi har $\theta_1 = 150 \beta_1 + \beta_2$ som gir $\beta_2 = \theta_1 - 150 \beta_1$. Setter inn for $\beta_2$ og får
 
 $$
-\textsf{log}(price) = \beta_0 + \beta_1 \textsf{sqrft} + (\theta - 150 \beta_1) \textsf{bdrms} + u = \beta_0 + \theta \textsf{bdrms} + \beta_1 (\textsf{sqrft} - 150 \textsf{bdrms}) + u
+\textsf{log}(price) = \beta_0 + \beta_1 \textsf{sqrft} + (\theta_1 - 150 \beta_1) \textsf{bdrms} + u = \beta_0 + \theta_1 \textsf{bdrms} + \beta_1 (\textsf{sqrft} - 150 \textsf{bdrms}) + u
 $$
 
 ```{r}
@@ -602,11 +684,11 @@ lm_hp <- lm(mod_hp, data = hprice1)
 summary(lm_hp)
 ```
 
-Ser at $\theta_1 = 8.580e-02 = 0,0858$.
+Ser at $\theta_1 = 8.580e-02 = 8.580\cdot 10^{-2} = 0,0858$.
 
-iii) Er nok $\theta_1$ og *ikke* $\theta_2$ som menes. Ser at standard error er $4.321·10^{-05}$.
+iii) Er nok $\theta_1$ og *ikke* $\theta_2$ som menes. Ser at standard error er $4.321\cdot 10^{-05}$.
 
-Gjør det enkelt og finner konfidensintervall vha.
+Vi gjør det enkelt og finner konfidensintervall vha.
 `confint`
 
 ```{r}
